@@ -1,4 +1,4 @@
-# Irys Canvas Frontend
+# IPRAYS Frontend
 
 Irys 네트워크와 Programmable Data를 활용한 픽셀 캔버스 프론트엔드 애플리케이션입니다.
 

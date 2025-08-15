@@ -1,6 +1,6 @@
-# 🤝 Contributing to Irys Canvas
+# 🤝 Contributing to IPRAYS
 
-Thank you for your interest in contributing to Irys Canvas! This document provides guidelines for contributing to this open-source project.
+Thank you for your interest in contributing to IPRAYS! This document provides guidelines for contributing to this open-source project.
 
 ## 🌟 Ways to Contribute
 
@@ -24,8 +24,8 @@ Thank you for your interest in contributing to Irys Canvas! This document provid
 1. **Fork the repository**
 2. **Clone your fork:**
 ```bash
-git clone https://github.com/yourusername/irys-canvas-public.git
-cd irys-canvas-public
+git clone https://github.com/yourusername/iprays-public.git
+cd iprays-public
 ```
 
 3. **Install dependencies:**
@@ -298,4 +298,4 @@ Contributors will be recognized in:
 - Community Discord
 - Annual contributor report
 
-Thank you for contributing to Irys Canvas! 🎨
+Thank you for contributing to IPRAYS! 🎨

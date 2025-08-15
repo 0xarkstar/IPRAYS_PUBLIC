@@ -1,4 +1,4 @@
-# 🎨 Irys Canvas - Decentralized Pixel Art Platform
+# 🎨 IPRAYS - Decentralized Pixel Art Platform
 
 A community-driven pixel art canvas built on the Irys blockchain, enabling users to collaboratively create digital art while permanently storing it on-chain.
 
@@ -36,8 +36,8 @@ A community-driven pixel art canvas built on the Irys blockchain, enabling users
 ### Frontend Development
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/irys-canvas-public.git
-cd irys-canvas-public
+git clone https://github.com/yourusername/IPRAYS_PUBLIC.git
+cd IPRAYS_PUBLIC
 
 # Install dependencies
 npm install
@@ -113,7 +113,7 @@ npm run test:coverage
 
 ### Project Structure
 ```
-irys-canvas-public/
+iprays-public/
 ├── contracts/              # Smart contracts
 ├── frontend/               # React application
 │   ├── src/

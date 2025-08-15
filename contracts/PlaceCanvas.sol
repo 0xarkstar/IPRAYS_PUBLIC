@@ -61,6 +61,7 @@ contract PlaceCanvas is
     event FundsWithdrawn(address indexed to, uint256 amount, uint256 timestamp);
     event AutoWithdraw(address indexed to, uint256 amount, uint256 timestamp);
     event UpgradedVersion(uint256 newVersion);
+    event RateLimitUpdated(uint256 newInterval, uint256 timestamp);
     
     // 매핑: 픽셀 위치 -> 마지막 배치 정보
     mapping(uint256 => PixelData) public pixels;
@@ -107,6 +108,7 @@ contract PlaceCanvas is
         maxProgrammableReadLength = 1024;
         treasury = payable(_owner);
         autoWithdrawThreshold = 0; // disabled by default
+        minPlacementInterval = 60; // 60 seconds rate limiting by default
         // establish version for upgraded deployments
         if (version == 0) {
             version = 2;
@@ -186,8 +188,8 @@ contract PlaceCanvas is
             lastPlacementAt[msg.sender] = block.timestamp;
         }
         
-        // Programmable Data를 스토리지로 읽어오기 (공식 패턴)
-        _readPdBytesIntoStorage(irysTxId);
+        // Official Irys Programmable Data pattern: read chunk into storage
+        _readPdChunkIntoStorage(irysTxId);
         
         // 저장된 데이터에서 색상 추출
         bytes memory data = irysPixelDetails[irysTxId];
@@ -212,35 +214,48 @@ contract PlaceCanvas is
     }
     
     /**
-     * @dev Programmable Data를 스토리지로 읽어오는 내부 함수 (공식 패턴)
-     * 공식 예제: readPdBytesIntoStorage() 패턴 적용
+     * @dev Official Irys Programmable Data reading pattern
+     * Based on official IrysProgrammableDataBasic.sol implementation
      * 
-     * @param irysTxId Irys 트랜잭션 ID
+     * Follows the official pattern:
+     * 1. Call readBytes() from ProgrammableData contract
+     * 2. Validate the returned data
+     * 3. Store data with transaction ID for reference
+     * 
+     * @param irysTxId Irys transaction ID for data identification
      */
-    function _readPdBytesIntoStorage(string memory irysTxId) internal {
-        // Access List에서 미리 정의된 Programmable Data 읽기
+    function _readPdChunkIntoStorage(string memory irysTxId) internal {
+        // Official Irys pattern: Call readBytes() to get data from access list
         (bool success, bytes memory data) = readBytes();
         require(success, "reading bytes failed");
         
-        // 길이/간단 유효성 검증 (JSON 최소 길이 보장)
+        // Validate data size (JSON pixel data should be reasonable size)
         require(data.length >= 8 && data.length <= maxProgrammableReadLength, "Invalid PD payload size");
         
-        // 읽어온 데이터를 스토리지에 저장 (legacy), 해시 기록
+        // Store data in contract storage using official pattern
         irysPixelDetails[irysTxId] = data;
         irysPixelHash[irysTxId] = keccak256(data);
         processedIrysData[irysTxId] = true;
     }
     
     /**
-     * @dev 저장된 Programmable Data 조회 (공식 패턴)
-     * 공식 예제: getStorage() 패턴 적용
+     * @dev Official Irys Programmable Data retrieval pattern
+     * Based on official getStorage() pattern from IrysProgrammableDataBasic.sol
      * 
-     * @param irysTxId Irys 트랜잭션 ID
-     * @return 저장된 Programmable Data
+     * @param irysTxId Irys transaction ID to retrieve data for
+     * @return Stored Programmable Data bytes
+     */
+    function getStoredPDData(string memory irysTxId) public view returns (bytes memory) {
+        require(processedIrysData[irysTxId], "Programmable data not processed");
+        return irysPixelDetails[irysTxId];
+    }
+    
+    /**
+     * @dev Legacy function for backward compatibility
+     * @deprecated Use getStoredPDData() instead
      */
     function getIrysPixelDetails(string memory irysTxId) public view returns (bytes memory) {
-        require(processedIrysData[irysTxId], "Irys data not processed");
-        return irysPixelDetails[irysTxId];
+        return getStoredPDData(irysTxId);
     }
     
     /**
@@ -251,64 +266,7 @@ contract PlaceCanvas is
         return irysPixelHash[irysTxId];
     }
     
-    /**
-     * @dev 레거시 Programmable Data 함수 (deprecated)
-     * 실제 네트워크에서는 위의 Access List 기반 함수를 사용해야 함
-     */
-    function placePixelWithProgrammableDataLegacy(
-        uint256 x,
-        uint256 y,
-        string memory irysTxId,
-        uint256 startOffset,
-        uint256 length
-    ) external payable nonReentrant whenNotPaused {
-        require(x < CANVAS_SIZE && y < CANVAS_SIZE, "Pixel outside canvas bounds");
-        require(msg.value >= pixelPrice, "Insufficient payment for pixel placement");
-        require(!processedIrysData[irysTxId], "Irys data already processed");
-        require(bytes(irysTxId).length > 0, "Invalid Irys txId");
-        require(length > 0 && length <= maxProgrammableReadLength, "Invalid PD length");
-        if (minPlacementInterval > 0) {
-            uint256 last = lastPlacementAt[msg.sender];
-            require(block.timestamp >= last + minPlacementInterval, "Placement rate limited");
-            lastPlacementAt[msg.sender] = block.timestamp;
-        }
-        
-        // 레거시 방식: 파라미터로 범위 지정
-        (bool success, bytes memory data) = readBytes(startOffset, length);
-        require(success, "Reading Irys data failed");
-
-        require(data.length >= 8 && data.length <= maxProgrammableReadLength, "Invalid PD payload size");
-
-        irysPixelDetails[irysTxId] = data;
-        irysPixelHash[irysTxId] = keccak256(data);
-        processedIrysData[irysTxId] = true;
-        
-        bytes3 color = extractColorFromData(data);
-        
-        pixels[getPixelKey(x, y)] = PixelData({
-            color: color,
-            placedBy: msg.sender,
-            timestamp: block.timestamp,
-            irysTxId: irysTxId,
-            isProgrammableData: true
-        });
-        
-        totalPixelsPlaced += 1;
-        
-        emit PixelPlaced(x, y, color, msg.sender, block.timestamp);
-        emit PixelDataRead(x, y, irysTxId, block.timestamp);
-        emit ProgrammableDataProcessed(irysTxId, data, block.timestamp);
-        _autoWithdrawIfNeeded();
-    }
     
-    /**
-     * @dev Irys에서 읽어온 픽셀 상세 데이터 조회 (기존 함수 유지)
-     * @param irysTxId Irys 트랜잭션 ID
-     * @return 상세 데이터
-     */
-    function getIrysPixelDetailsLegacy(string memory irysTxId) external view returns (bytes memory) {
-        return irysPixelDetails[irysTxId];
-    }
 
     /**
      * @dev PD 처리 여부 확인(중복 방지용)
@@ -573,6 +531,7 @@ contract PlaceCanvas is
     function setMinPlacementInterval(uint256 secondsInterval) external onlyOwner {
         require(secondsInterval <= 1 days, "Interval too large");
         minPlacementInterval = secondsInterval;
+        emit RateLimitUpdated(secondsInterval, block.timestamp);
     }
 
     /**

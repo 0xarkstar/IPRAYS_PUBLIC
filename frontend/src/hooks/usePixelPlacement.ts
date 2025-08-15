@@ -231,9 +231,6 @@ export const usePixelPlacement = (
     }
   };
 
-  const handleContribute = async (_amount: number, _onSuccess?: (amount: number) => void) => {
-    toast.info('Funding is disabled');
-  };
 
   const handleViewTransaction = (hash: string) => {
     const explorerUrl = import.meta.env.VITE_IRYS_EXPLORER_URL || 'https://testnet-explorer.irys.xyz';
@@ -243,7 +240,6 @@ export const usePixelPlacement = (
   return {
     transactions,
     handlePixelPlace,
-    handleContribute,
     handleViewTransaction,
     // Rate limiting utilities
     checkContractRateLimit,

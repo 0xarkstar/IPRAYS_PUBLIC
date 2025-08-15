@@ -17,16 +17,35 @@ export const ABI = [
   { "inputs": [ { "internalType": "uint256", "name": "x", "type": "uint256" }, { "internalType": "uint256", "name": "y", "type": "uint256" }, { "internalType": "bytes3", "name": "color", "type": "bytes3" }, { "internalType": "string", "name": "irysTxId", "type": "string" } ], "name": "placePixel", "outputs": [], "stateMutability": "payable", "type": "function" },
   { "inputs": [ { "internalType": "uint256", "name": "x", "type": "uint256" }, { "internalType": "uint256", "name": "y", "type": "uint256" }, { "internalType": "string", "name": "irysTxId", "type": "string" } ], "name": "placePixelWithProgrammableData", "outputs": [], "stateMutability": "payable", "type": "function" },
   { "inputs": [ { "internalType": "uint256", "name": "x", "type": "uint256" }, { "internalType": "uint256", "name": "y", "type": "uint256" } ], "name": "getPixel", "outputs": [ { "internalType": "bytes3", "name": "color", "type": "bytes3" }, { "internalType": "address", "name": "placedBy", "type": "address" }, { "internalType": "uint256", "name": "timestamp", "type": "uint256" }, { "internalType": "string", "name": "irysTxId", "type": "string" }, { "internalType": "bool", "name": "isProgrammableData", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+  // Programmable Data functions
+  { "inputs": [ { "internalType": "string", "name": "irysTxId", "type": "string" } ], "name": "getStoredPDData", "outputs": [ { "internalType": "bytes", "name": "", "type": "bytes" } ], "stateMutability": "view", "type": "function" },
+  { "inputs": [ { "internalType": "string", "name": "irysTxId", "type": "string" } ], "name": "isProcessedIrysData", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
   // Rate limiting functions
   { "inputs": [], "name": "minPlacementInterval", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
   { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "lastPlacementAt", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+  // Events
   { "anonymous": false, "inputs": [
       { "indexed": true, "internalType": "uint256", "name": "x", "type": "uint256" },
       { "indexed": true, "internalType": "uint256", "name": "y", "type": "uint256" },
       { "indexed": false, "internalType": "bytes3", "name": "color", "type": "bytes3" },
       { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
       { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
-    ], "name": "PixelPlaced", "type": "event" }
+    ], "name": "PixelPlaced", "type": "event" },
+  { "anonymous": false, "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "x", "type": "uint256" },
+      { "indexed": true, "internalType": "uint256", "name": "y", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "irysTxId", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ], "name": "PixelDataRead", "type": "event" },
+  { "anonymous": false, "inputs": [
+      { "indexed": false, "internalType": "string", "name": "irysTxId", "type": "string" },
+      { "indexed": false, "internalType": "bytes", "name": "data", "type": "bytes" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ], "name": "ProgrammableDataProcessed", "type": "event" },
+  { "anonymous": false, "inputs": [
+      { "indexed": false, "internalType": "uint256", "name": "newInterval", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ], "name": "RateLimitUpdated", "type": "event" }
 ] as const
 
 // Load settings from env/config
@@ -161,86 +180,79 @@ export async function placePixelWrite(
 }
 
 /**
- * @dev Official Irys Programmable Data transaction function
+ * Official Irys Programmable Data pixel placement
  * 
- * Official guide: https://github.com/Irys-xyz/irys-js/blob/master/tests/programmableData.ts
- * Reference: Official example - Include Access List in EIP-1559 transaction
+ * Based on official implementation patterns:
+ * - E2E Test: https://github.com/Irys-xyz/irys-js/blob/master/tests/programmableData.ts
+ * - Contract Example: https://github.com/Irys-xyz/irys/blob/master/fixtures/contracts/src/IrysProgrammableDataBasic.sol
+ * - Documentation: https://docs.irys.xyz/build/programmability/programmable-data
  * 
- * Note: Only data uploaded to permanent storage (ledgerId 0) can be read
- *       DataItems are currently unsupported (planned for future support)
+ * Requirements:
+ * - Only works with permanent storage transactions (ledgerId 0)
+ * - Requires EIP-1559 transaction with Access List
+ * - DataItems currently unsupported
  * 
  * @param x X coordinate
- * @param y Y coordinate
- * @param irysTxId Irys transaction ID (must be included in Access List)
- * @param accessList Programmable Data Access List
- * @param valueWei Payment amount (wei)
+ * @param y Y coordinate  
+ * @param irysTxId Irys transaction ID (must be in Access List)
+ * @param accessList EIP-1559 Access List generated by irys.programmableData.read()
+ * @param valueWei Payment amount in wei
  * @returns Transaction receipt
  */
 export async function placePixelWithPDWrite(
   x: number,
   y: number,
   irysTxId: string,
-  accessList: any[], // Access List array
+  accessList: any[], // Access List array from irys.programmableData.read()
   valueWei: bigint
 ) {
   if (!CONTRACT_ADDRESS) {
     throw new Error('Contract address not set')
   }
 
+  console.log('Initiating Programmable Data transaction:', {
+    coordinates: [x, y],
+    irysTxId: irysTxId.slice(0, 10) + '...',
+    accessListEntries: accessList.length,
+    value: valueWei.toString()
+  })
+
   try {
-    // Use wagmi to simulate the transaction first
+    // Official Irys pattern: EIP-1559 transaction with Access List
+    // Based on E2E test from irys-js/tests/programmableData.ts
+    
+    // First simulate to get gas estimates
     const { request } = await simulateContract(wagmiConfig, {
       address: CONTRACT_ADDRESS,
       abi: ABI,
       functionName: 'placePixelWithProgrammableData',
       args: [BigInt(x), BigInt(y), irysTxId],
       value: valueWei,
-      // Note: accessList support in wagmi might be limited, may need custom transaction
     })
 
+    // For now, use standard wagmi writeContract
+    // TODO: Implement custom EIP-1559 transaction with accessList when wagmi supports it
     const hash = await writeContract(wagmiConfig, request)
     const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+    
+    console.log('Programmable Data transaction successful:', {
+      hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed?.toString()
+    })
     
     return receipt
     
   } catch (error) {
-    console.error('Programmable Data transaction failed:', error)
+    console.error('Programmable Data transaction failed:', {
+      error: error instanceof Error ? error.message : String(error),
+      coordinates: [x, y],
+      irysTxId: irysTxId.slice(0, 10) + '...'
+    })
     throw new Error(`Programmable Data transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
-// Legacy compatibility function (for testing/local development)
-export async function placePixelWithPDWriteLegacy(
-  x: number,
-  y: number,
-  irysTxId: string,
-  startOffset: number,
-  length: number,
-  valueWei: bigint
-) {
-  if (!CONTRACT_ADDRESS) {
-    throw new Error('Contract address not set')
-  }
-
-  try {
-    const { request } = await simulateContract(wagmiConfig, {
-      address: CONTRACT_ADDRESS,
-      abi: ABI,
-      functionName: 'placePixelWithProgrammableDataLegacy',
-      args: [BigInt(x), BigInt(y), irysTxId, BigInt(startOffset), BigInt(length)],
-      value: valueWei,
-    })
-
-    const hash = await writeContract(wagmiConfig, request)
-    const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
-    return receipt
-  } catch (error) {
-    console.error('Legacy PD transaction failed:', error)
-    throw error
-  }
-}
-
-// funding removed
 
 export async function estimatePixelPlaceFeeEth(
   x: number,
@@ -468,9 +480,3 @@ export async function estimatePlacePixelFeeWei(
   }
 }
 
-export async function estimateContributeFeeWei(
-  amountWei: bigint
-): Promise<{ gasLimit: bigint; feePerGasWei: bigint; totalFeeWei: bigint }> {
-  // Funding disabled: return zeroed estimation
-  return { gasLimit: 0n, feePerGasWei: 0n, totalFeeWei: 0n }
-}

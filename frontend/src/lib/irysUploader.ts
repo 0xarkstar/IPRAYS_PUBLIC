@@ -8,8 +8,6 @@ export interface AdvancedUploadOptions {
   tags?: { name: string; value: string }[];
   anchor?: string; // 결정적 데이터 아이템 ID 방지용
   lazy?: boolean; // Lazy funding 사용 여부
-  multiplier?: number; // Fee multiplier
-  autoFund?: boolean; // 자동 펀딩 여부
 }
 
 export interface UploadResult {
@@ -24,15 +22,8 @@ export interface UploadResult {
   verify: () => Promise<boolean>;
   downloadUrl: string;
   cost?: string;
-  funded?: boolean;
 }
 
-export interface BatchUploadResult {
-  successful: UploadResult[];
-  failed: Array<{ data: any; error: string }>;
-  totalCost: string;
-  totalFunded: string;
-}
 
 class IrysUploader {
   private client: WebIrys | null = null;
@@ -53,10 +44,6 @@ class IrysUploader {
     const endTimer = irysDebugger.startTimer('uploadData');
 
     try {
-      // 자동 펀딩 처리
-      if (options.autoFund) {
-        await this.ensureFunding(data, options.multiplier);
-      }
 
       // 기본 태그 설정
       const defaultTags = [
@@ -98,8 +85,7 @@ class IrysUploader {
         validatorSignatures: receipt.validatorSignatures,
         verify: receipt.verify,
         downloadUrl: `${import.meta.env.VITE_IRYS_GATEWAY_URL || 'https://gateway.irys.xyz'}/${receipt.id}`,
-        cost: '0', // Cost calculation removed due to API changes
-        funded: options.autoFund,
+        cost: await this.calculateActualCost(dataSize),
       };
 
       const duration = endTimer();
@@ -179,124 +165,20 @@ class IrysUploader {
     return this.uploadData(JSON.stringify(canvasData), uploadOptions);
   }
 
-  // 배치 업로드 (여러 픽셀 한 번에)
-  async batchUploadPixels(
-    pixelsData: any[],
-    options: AdvancedUploadOptions = {}
-  ): Promise<BatchUploadResult> {
-    if (!this.client) {
-      throw new Error('Irys client not initialized');
-    }
 
-    const endTimer = irysDebugger.startTimer('batchUploadPixels');
-    const results: BatchUploadResult = {
-      successful: [],
-      failed: [],
-      totalCost: '0',
-      totalFunded: '0',
-    };
 
+  // 실제 업로드 비용 계산
+  private async calculateActualCost(dataSize: number): Promise<string> {
     try {
-      irysDebugger.info('Starting batch pixel upload', {
-        pixelCount: pixelsData.length,
-      });
-
-      // 전체 데이터 크기 계산 및 사전 펀딩
-      if (options.autoFund) {
-        const totalDataSize = pixelsData.reduce((size, pixel) => {
-          return size + JSON.stringify(pixel).length;
-        }, 0);
-
-        const totalCost = await this.client.getPrice(totalDataSize);
-        const currentBalance = await this.client.getLoadedBalance();
-
-        if ((currentBalance as any)?.lt?.(totalCost)) {
-          const fundingAmount = (totalCost as any)?.sub?.(currentBalance) || totalCost;
-          await this.client.fund(fundingAmount, options.multiplier);
-          results.totalFunded = String(fundingAmount);
-        }
+      if (!this.client) {
+        return '0';
       }
-
-      // 개별 픽셀 업로드
-      for (let i = 0; i < pixelsData.length; i++) {
-        try {
-          const pixelResult = await this.uploadPixelData(pixelsData[i], {
-            ...options,
-            autoFund: false, // 이미 사전 펀딩됨
-          });
-
-          results.successful.push(pixelResult);
-
-          // 진행 상황 로그
-          if ((i + 1) % 10 === 0 || i === pixelsData.length - 1) {
-            irysDebugger.debug('Batch upload progress', {
-              completed: i + 1,
-              total: pixelsData.length,
-              successRate: `${((results.successful.length / (i + 1)) * 100).toFixed(1)}%`,
-            });
-          }
-
-        } catch (error) {
-          results.failed.push({
-            data: pixelsData[i],
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-
-          irysDebugger.warn('Individual pixel upload failed', {
-            pixelIndex: i,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-        }
-      }
-
-      // 총 비용 계산
-      const totalCostAtomic = results.successful.reduce((sum, result) => {
-        return sum + parseFloat(result.cost || '0');
-      }, 0);
-      results.totalCost = totalCostAtomic.toString();
-
-      const duration = endTimer();
-      irysDebugger.info('Batch upload completed', {
-        successful: results.successful.length,
-        failed: results.failed.length,
-        totalCost: results.totalCost,
-        duration: '0ms', // Timer issue - simplified for now
-      });
-
-      return results;
-
+      
+      const price = await this.client.getPrice(dataSize);
+      return price.toString();
     } catch (error) {
-      endTimer();
-      irysDebugger.error('Batch upload failed', {
-        pixelCount: pixelsData.length,
-      }, error as Error);
-      throw error;
-    }
-  }
-
-  // 자동 펀딩 보장
-  private async ensureFunding(data: string | Buffer, multiplier?: number): Promise<void> {
-    if (!this.client) return;
-
-    try {
-      const dataSize = typeof data === 'string' ? data.length : data.length;
-      const requiredCost = await this.client.getPrice(dataSize);
-      const currentBalance = await this.client.getLoadedBalance();
-
-      if ((currentBalance as any)?.lt?.(requiredCost)) {
-        const fundingAmount = (requiredCost as any)?.sub?.(currentBalance) || requiredCost;
-        
-        irysDebugger.info('Auto-funding required', {
-          currentBalance: this.client.utils.fromAtomic(currentBalance),
-          requiredCost: this.client.utils.fromAtomic(requiredCost),
-          fundingAmount: this.client.utils.fromAtomic(fundingAmount),
-        });
-
-        await this.client.fund(fundingAmount, multiplier);
-      }
-    } catch (error) {
-      irysDebugger.error('Auto-funding failed', {}, error as Error);
-      throw error;
+      irysDebugger.error('Cost calculation failed', { dataSize }, error as Error);
+      return '0';
     }
   }
 
@@ -368,11 +250,3 @@ export const uploadCanvasWithIrys = async (
   return uploader.uploadCanvasState(canvasData, options);
 };
 
-export const batchUploadPixelsWithIrys = async (
-  client: WebIrys,
-  pixelsData: any[],
-  options?: AdvancedUploadOptions
-): Promise<BatchUploadResult> => {
-  const uploader = createIrysUploader(client);
-  return uploader.batchUploadPixels(pixelsData, options);
-};

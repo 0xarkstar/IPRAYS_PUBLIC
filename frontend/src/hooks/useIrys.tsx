@@ -38,8 +38,6 @@ interface IrysContextType {
   uploadCanvasState: (data: any) => Promise<UploadResponse | null>;
   getFundingPrice: (amount: string) => Promise<number>;
   createAccessList: (transactionId: string, startOffset: number, length: number) => Promise<any[]>;
-  fundAccount: (amount: string) => Promise<void>;
-  withdrawBalance: (amount: string) => Promise<void>;
   getLoadedBalance: () => Promise<string>;
 }
 
@@ -57,8 +55,6 @@ const defaultIrysContext: IrysContextType = {
   uploadCanvasState: async () => null,
   getFundingPrice: async () => 0,
   createAccessList: async () => [],
-  fundAccount: async () => {},
-  withdrawBalance: async () => {},
   getLoadedBalance: async () => '0',
 };
 
@@ -208,15 +204,29 @@ export function IrysProvider({ children }: { children: ReactNode }) {
 
   const createAccessList = useCallback(async (transactionId: string, startOffset: number, length: number): Promise<any[]> => {
     if (!isConnected || !client) {
-      throw new Error('Irys 네트워크에 연결되지 않았습니다');
+      throw new Error('WebIrys not connected to network');
+    }
+
+    if (!client.hasProgrammableDataSupport()) {
+      throw new Error('Programmable Data not supported by WebIrys client');
     }
 
     try {
-      const accessList = await client.getData(transactionId);
+      // Official Irys Programmable Data Access List creation pattern
+      // Based on E2E test: irys-js/tests/programmableData.ts
+      const accessList = await client.createProgrammableDataAccessList(transactionId, startOffset, length);
+      
+      console.log('Access list created successfully:', {
+        transactionId: transactionId.slice(0, 10) + '...',
+        startOffset,
+        length,
+        accessListLength: accessList.length
+      });
+      
       return accessList;
     } catch (error) {
-      console.error('Access List 생성 실패:', error);
-      throw error;
+      console.error('Programmable Data Access List creation failed:', error);
+      throw new Error(`Failed to create access list: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [isConnected, client]);
 
@@ -224,29 +234,6 @@ export function IrysProvider({ children }: { children: ReactNode }) {
     return connect();
   }, [connect]);
 
-  const fundAccount = useCallback(async (amount: string): Promise<void> => {
-    if (!isConnected || !client) {
-      toast.error('Not connected to Irys network');
-      return;
-    }
-
-    try {
-      await client.fundAccount(amount);
-      const newBalance = await client.getBalance();
-      setBalance(newBalance);
-      toast.success(`Funded account with ${amount} tokens`);
-    } catch (error) {
-      console.error('Account funding failed:', error);
-      toast.error(`Account funding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [isConnected, client]);
-
-  const withdrawBalance = useCallback(async (amount: string): Promise<void> => {
-    const numAmount = parseFloat(amount);
-    const newBalance = Math.max(0, parseFloat(balance) - numAmount);
-    setBalance(newBalance.toString());
-    toast.success(`Withdrew ${amount} tokens`);
-  }, [balance]);
 
   const getLoadedBalance = useCallback(async (): Promise<string> => {
     if (isConnected && client) {
@@ -275,8 +262,6 @@ export function IrysProvider({ children }: { children: ReactNode }) {
     uploadCanvasState,
     getFundingPrice,
     createAccessList,
-    fundAccount,
-    withdrawBalance,
     getLoadedBalance
   };
 

@@ -1,4 +1,4 @@
-# 🎨 Irys Canvas - 분산형 픽셀 아트 플랫폼
+# 🎨 IPRAYS - 분산형 픽셀 아트 플랫폼
 
 **Irys 블록체인 기반의 r/place 스타일 픽셀 캔버스 dApp**
 
@@ -8,7 +8,7 @@ Irys Programmable Data를 활용한 분산형 픽셀 아트 플랫폼으로, 사
 
 ## 🎯 프로젝트 개요
 
-Irys Canvas는 **Irys Network**의 **Programmable Data** 기술을 활용한 차세대 분산형 캔버스 애플리케이션입니다. 각 픽셀 배치는 블록체인에 영구적으로 기록되며, 실시간으로 전 세계 사용자들과 협력하여 디지털 아트를 만들 수 있습니다.
+IPRAYS는 **Irys Network**의 **Programmable Data** 기술을 활용한 차세대 분산형 캔버스 애플리케이션입니다. 각 픽셀 배치는 블록체인에 영구적으로 기록되며, 실시간으로 전 세계 사용자들과 협력하여 디지털 아트를 만들 수 있습니다.
 
 ## ✨ 주요 기능
 
@@ -71,8 +71,8 @@ frontend/src/
 
 1. **저장소 클론**
 ```bash
-git clone https://github.com/your-repo/irys-canvas.git
-cd irys-canvas
+git clone https://github.com/your-repo/iprays.git
+cd iprays
 ```
 
 2. **의존성 설치**
@@ -219,7 +219,7 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
 ## 🔗 유용한 링크
 
-- **🏠 홈페이지**: https://irys-canvas.vercel.app
+- **🏠 홈페이지**: https://iprays.vercel.app
 - **📚 Irys 네트워크**: https://irys.xyz
 - **📖 Irys 문서**: https://docs.irys.xyz
 - **🔍 테스트넷 익스플로러**: https://testnet-explorer.irys.xyz

@@ -112,7 +112,6 @@ export const useCanvasSync = () => {
         saveSnapshot({
           blockNumber: current,
           pixels: Array.from(new Map(confirmedPixels.concat(syncedPixels).map(p => [`${p.x}_${p.y}`, p])).values()),
-          fundingIrys: 0,
         });
       }, 0);
 
@@ -206,7 +205,6 @@ export const useCanvasSync = () => {
       saveSnapshot({
         blockNumber: syncedBlock,
         pixels: confirmedPixels,
-        fundingIrys: 0
       });
     }
   }, [confirmedPixels, syncedBlock, confirmedBlock, requiredConfs]);

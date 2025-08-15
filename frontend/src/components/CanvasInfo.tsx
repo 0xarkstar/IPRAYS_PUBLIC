@@ -1,12 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Info, Grid3X3, Coins, TrendingUp, Target } from "lucide-react";
+import { Info, Grid3X3, Coins, TrendingUp } from "lucide-react";
 
 interface CanvasInfoProps {
   canvasSize: { width: number; height: number };
   pixelPrice: number;
-  fundingProgress: number;
-  fundingThreshold: number;
   maxSize: { width: number; height: number };
   totalPixels: number;
 }
@@ -14,12 +12,9 @@ interface CanvasInfoProps {
 export const CanvasInfo = ({
   canvasSize,
   pixelPrice,
-  fundingProgress,
-  fundingThreshold,
   maxSize,
   totalPixels
 }: CanvasInfoProps) => {
-  const progressPercentage = (fundingProgress / fundingThreshold) * 100;
   const filledPixels = totalPixels;
   const totalCanvasPixels = canvasSize.width * canvasSize.height;
   const fillPercentage = (filledPixels / totalCanvasPixels) * 100;
@@ -81,27 +76,6 @@ export const CanvasInfo = ({
           </div>
         </div>
 
-        {/* Funding Progress */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-secondary" />
-              <span className="text-sm font-medium">Expansion Funding</span>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {fundingProgress.toFixed(3)} / {fundingThreshold.toFixed(3)} IRYS
-            </span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-secondary to-secondary-glow h-2 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(progressPercentage, 100)}%` }}
-            ></div>
-          </div>
-          <div className="text-xs text-muted-foreground text-right">
-            {progressPercentage.toFixed(1)}% to expansion
-          </div>
-        </div>
 
         {/* Maximum Size */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -114,17 +88,6 @@ export const CanvasInfo = ({
           </Badge>
         </div>
 
-        {/* Expansion Status */}
-        {progressPercentage >= 100 && (
-          <div className="p-3 rounded-lg bg-accent/10 border border-accent/20">
-            <div className="flex items-center gap-2 text-accent">
-              <Target className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Ready for expansion! Canvas will grow automatically.
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     </Card>
   );

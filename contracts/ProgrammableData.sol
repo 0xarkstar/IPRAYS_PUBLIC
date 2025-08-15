@@ -5,49 +5,57 @@ pragma solidity ^0.8.20;
  * @title ProgrammableData
  * @dev Official Irys Programmable Data library
  * 
- * Official implementation: https://github.com/Irys-xyz/precompile-libraries/
+ * Based on official Irys implementation:
+ * - Repository: https://github.com/Irys-xyz/precompile-libraries/
+ * - Example: https://github.com/Irys-xyz/irys/blob/master/fixtures/contracts/src/IrysProgrammableDataBasic.sol
+ * - E2E Test: https://github.com/Irys-xyz/irys-js/blob/master/tests/programmableData.ts
  * 
- * Usage:
- * 1. Generate irysClient.programmable_data.read(transactionId, startOffset, length).toAccessList() in frontend
- * 2. Include accessList in EIP-1559 transaction and send
- * 3. Call readBytes() in contract (no parameters)
+ * Official Usage Pattern:
+ * 1. Frontend: Generate access list using irys.programmableData.read(txId, offset, length)
+ * 2. Frontend: Create EIP-1559 transaction with access list
+ * 3. Contract: Call readBytes() to get data from access list (no parameters needed)
+ * 4. Contract: Process and store data as needed
  * 
- * Note: Only data uploaded to permanent storage (ledgerId 0) can be read
- *       DataItems are currently unsupported (planned for future support)
+ * Requirements:
+ * - Only works with permanent storage transactions (ledgerId 0)
+ * - Bundled DataItems currently unsupported
+ * - Must use EIP-1559 transactions with access lists
+ * - Charged per chunk requested (even unread chunks)
  */
 contract ProgrammableData {
     
     /**
-     * @dev Function to read Programmable Data defined in Access List
-     * This function works through Irys network's custom precompile.
+     * @dev Official Irys Programmable Data precompile function
+     * Reads bytes from access list defined in EIP-1559 transaction
      * 
-     * @return success Whether reading was successful
-     * @return data Retrieved data (range defined in Access List)
+     * Based on official pattern from IrysProgrammableDataBasic.sol
+     * 
+     * @return success Whether the precompile call was successful
+     * @return data The byte data retrieved from Irys network
      */
     function readBytes() internal view returns (bool success, bytes memory data) {
-        // Call Irys network's custom precompile
-        // Read predefined data range from Access List
+        // Call Irys network's custom precompile at address 0x100
+        // This precompile reads data ranges specified in the transaction's access list
         assembly {
-            // Prepare empty call data in memory (readBytes() has no parameters)
+            // Prepare call to precompile (no input data needed)
             let ptr := mload(0x40)
             
             // Official Irys Programmable Data precompile address
-            // Testnet: 0x0000000000000000000000000000000000000100
-            // Mainnet: 0x0000000000000000000000000000000000000100
+            // Address: 0x0000000000000000000000000000000000000100
             success := staticcall(gas(), 0x0000000000000000000000000000000000000100, ptr, 0, 0, 0)
             
             if success {
                 // Get returned data size
                 let dataSize := returndatasize()
                 
-                // Allocate memory
+                // Allocate memory for data
                 data := mload(0x40)
                 mstore(0x40, add(data, add(dataSize, 0x20)))
                 
-                // Store data size
+                // Store data length at the beginning
                 mstore(data, dataSize)
                 
-                // Copy actual data
+                // Copy actual data from returndata
                 returndatacopy(add(data, 0x20), 0, dataSize)
             }
         }
@@ -55,23 +63,4 @@ contract ProgrammableData {
         return (success, data);
     }
     
-    /**
-     * @dev Legacy compatibility function (deprecated)
-     * 
-     * Note: Actual Irys PD only supports Access List method.
-     * This function is maintained only for compatibility with existing code.
-     * 
-     * @param startOffset Start offset (unused)
-     * @param length Data length (unused)
-     * @return success Always false (not supported)
-     * @return data Empty data
-     */
-    function readBytes(uint256 startOffset, uint256 length) internal pure returns (bool success, bytes memory data) {
-        // Legacy method is not supported
-        // Must use Access List method
-        startOffset; // Prevent compiler warning
-        length; // Prevent compiler warning
-        
-        return (false, new bytes(0));
-    }
 }

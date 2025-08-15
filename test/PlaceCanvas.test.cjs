@@ -99,7 +99,6 @@ describe("PlaceCanvas", function () {
   describe("Programmable Data", function () {
     it("Programmable Data 함수가 존재해야 함", async function () {
       expect(typeof placeCanvas.placePixelWithProgrammableData).to.equal("function");
-      expect(typeof placeCanvas.placePixelWithProgrammableDataLegacy).to.equal("function");
     });
   });
 

@@ -1,6 +1,6 @@
 import { errorHandler, withRetry, handlePixelPlacementError } from './errorHandler';
 import { useOptimisticCanvas } from '../hooks/useOptimisticCanvas';
-import { placePixelWrite, placePixelWithPDWrite, placePixelWithPDWriteLegacy } from './contract';
+import { placePixelWrite, placePixelWithPDWrite } from './contract';
 import { toast } from 'sonner';
 
 export interface PixelPlacementData {
@@ -196,41 +196,8 @@ export class PixelPlacementService {
         throw new Error(`Programmable Data failed: ${pdError?.message || 'Unknown error'}`);
       }
 
-      try {
-        // Fallback: Legacy PD (dev/testing)
-        
-        
-        if (!pixel.irysId) {
-          throw new Error('Irys ID is required for legacy flow');
-        }
-        
-        const legacyReceipt = await withRetry(
-          () => placePixelWithPDWriteLegacy(
-            pixel.x,
-            pixel.y,
-            pixel.irysId!,
-            0,
-            pixel.irysPayloadLength || 1024,
-            pixelPriceWei
-          ),
-          'place-pixel-with-pd-legacy',
-          maxRetries,
-          { x: pixel.x, y: pixel.y, irysId: pixel.irysId }
-        );
-
-        toast.success('Pixel placed with Programmable Data (legacy)');
-        return legacyReceipt;
-
-      } catch (legacyError: any) {
-        
-
-        if (!enableFallback) {
-          throw legacyError;
-        }
-
-        // 3) Final fallback to standard placement
-        return await this.trySimplePixelPlacement(pixel, pixelPriceWei, maxRetries);
-      }
+      // Fallback to standard placement if PD fails
+      return await this.trySimplePixelPlacement(pixel, pixelPriceWei, maxRetries);
     }
   }
 
@@ -258,14 +225,6 @@ export class PixelPlacementService {
     return receipt;
   }
 
-  async placeBatchPixels(
-    pixels: PixelPlacementData[],
-    options: Partial<PixelPlacementOptions> = {}
-  ): Promise<void> {
-    for (const pixel of pixels) {
-      await this.placePixelWithRecovery(pixel, options, {} as any, false, async () => [], BigInt(0));
-    }
-  }
 
   async placeSimplePixel(
     x: number,

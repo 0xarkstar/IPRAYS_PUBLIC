@@ -3,7 +3,7 @@
 ## 📂 파일 구조
 
 ```
-irys-canvas/
+iprays/
 ├── .env.local          # Backend/Contract 환경변수
 ├── .env.example        # Backend 템플릿
 ├── frontend/
