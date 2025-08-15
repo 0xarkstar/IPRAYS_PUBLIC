@@ -382,11 +382,8 @@ export const EnhancedPixelCanvas = ({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4 p-2 bg-card/50 rounded-lg border">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-accent border-accent text-xs">
-            {pixels.filter(p => p.irysId).length} on Irys
+            r/Place on Irys
           </Badge>
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            Enhanced Canvas
-          </span>
         </div>
         
         <div className="flex items-center gap-1 flex-wrap">
