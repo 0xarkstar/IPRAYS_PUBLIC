@@ -115,7 +115,15 @@ const Index = () => {
                   </div>
                   <div>
                     <h1 className="text-xl md:text-2xl font-bold text-foreground">IPRAYS</h1>
-                    <p className="text-xs md:text-sm text-muted-foreground">Decentralized pixel art • 1024×1024</p>
+                    <div className="space-y-1">
+                      <p className="text-xs md:text-sm text-muted-foreground">Decentralized pixel art • 1024×1024</p>
+                      <p className="text-xs text-muted-foreground/80">
+                        {pixelPrice < 0.001 ? 
+                          `${(pixelPrice * 1000).toFixed(1)} mIRYS per pixel • Get 0.5 IRYS daily from faucet` : 
+                          `${pixelPrice.toFixed(4)} IRYS per pixel`
+                        }
+                      </p>
+                    </div>
                   </div>
                 </div>
                 

@@ -76,7 +76,7 @@ const Index = () => {
             <div>
               <strong className="text-gray-700 dark:text-gray-300">Pixel Price:</strong>
               <br />
-              <span className="text-gray-900 dark:text-white">0.001 Irys</span>
+              <span className="text-gray-900 dark:text-white">0.1 mIRYS</span>
             </div>
           </div>
         </div>

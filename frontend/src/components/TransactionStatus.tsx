@@ -51,7 +51,7 @@ export const TransactionStatus = ({ transactions, onViewTransaction }: Transacti
       case 'pixel_place':
         return 'Pixel placement';
       case 'funding_contribution':
-        return `Funding contribution (${transaction.amount?.toFixed(3)} IRYS)`;
+        return `Funding contribution (${transaction.amount && transaction.amount < 0.001 ? `${(transaction.amount * 1000).toFixed(1)} mIRYS` : `${transaction.amount?.toFixed(4)} IRYS`})`;
     }
   };
 

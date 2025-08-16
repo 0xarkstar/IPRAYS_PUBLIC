@@ -612,7 +612,10 @@ export const EnhancedPixelCanvas = ({
               Position: ({hoveredPixel.x}, {hoveredPixel.y})
             </div>
             <div className="text-xs text-muted-foreground">
-              Cost: {pixelPrice.toFixed(3)} IRYS
+              Cost: {pixelPrice < 0.001 ? 
+                `${(pixelPrice * 1000).toFixed(1)} mIRYS` : 
+                `${pixelPrice.toFixed(4)} IRYS`
+              }
             </div>
             <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
               <div 

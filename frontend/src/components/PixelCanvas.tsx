@@ -133,7 +133,7 @@ export const PixelCanvas = ({ selectedColor, onPixelPlace, pixels, canvasSize, p
       };
       
       onPixelPlace(newPixel);
-      toast.success(`Pixel placed at (${coords.x}, ${coords.y}) for ${pixelPrice.toFixed(3)} mIrys`);
+      toast.success(`Pixel placed at (${coords.x}, ${coords.y}) for ${pixelPrice < 0.001 ? `${(pixelPrice * 1000).toFixed(1)} mIRYS` : `${pixelPrice.toFixed(4)} IRYS`}`);
     }
   };
 
@@ -246,7 +246,10 @@ export const PixelCanvas = ({ selectedColor, onPixelPlace, pixels, canvasSize, p
               Position: ({hoveredPixel.x}, {hoveredPixel.y})
             </div>
           <div className="text-xs text-muted-foreground">
-              Cost: {pixelPrice.toFixed(3)} IRYS
+              Cost: {pixelPrice < 0.001 ? 
+                `${(pixelPrice * 1000).toFixed(1)} mIRYS` : 
+                `${pixelPrice.toFixed(4)} IRYS`
+              }
             </div>
           </div>
         )}

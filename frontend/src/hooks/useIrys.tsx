@@ -195,7 +195,7 @@ export function IrysProvider({ children }: { children: ReactNode }) {
   const getFundingPrice = useCallback(async (amount: string): Promise<number> => {
     try {
       const numAmount = parseFloat(amount);
-      return numAmount * 0.001; // Mock price calculation
+      return numAmount * 0.0001; // Mock price calculation - Updated for 0.1 mIRYS
     } catch (error) {
       console.error('자금 조달 가격 조회 실패:', error);
       return 0;

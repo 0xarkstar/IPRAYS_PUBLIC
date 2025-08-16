@@ -50,7 +50,7 @@ export const CanvasInfo = ({
             <span className="text-sm font-medium">Pixel Price</span>
           </div>
           <Badge variant="outline" className="text-accent font-mono">
-            {pixelPrice.toFixed(3)} IRYS
+            {pixelPrice < 0.001 ? `${(pixelPrice * 1000).toFixed(1)} mIRYS` : `${pixelPrice.toFixed(4)} IRYS`}
           </Badge>
         </div>
 

@@ -285,7 +285,7 @@ export async function estimatePixelPlaceFeeEth(
     return Number(formatEther(totalWei.toString()))
   } catch (error) {
     console.error('Failed to estimate gas:', error)
-    return 0.001 // Fallback estimate
+    return 0.0001 // Fallback estimate - Updated for 0.1 mIRYS
   }
 }
 

@@ -125,7 +125,7 @@ export const WalletSecurityStatus: React.FC = () => {
     if (securityCheck.safe) score += 20;
     if (securityCheck.warnings.length === 0) score += 10;
     if (walletState.isCorrectNetwork) score += 10;
-    if (parseFloat(walletState.balance) > 0.001) score -= 5; // 잔액이 너무 낮으면 감점
+    if (parseFloat(walletState.balance) > 0.0001) score -= 5; // 잔액이 너무 낮으면 감점 (0.1 mIRYS 기준)
     
     return Math.min(100, Math.max(0, score));
   };

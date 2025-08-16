@@ -20,7 +20,7 @@ import "./ProgrammableData.sol";
  * - EIP-1559 transaction support
  * 
  * Payment Token: Irys Native Token (mIrys)
- * - Pixel placement: 1.0 mIrys (0.001 Irys)
+ * - Pixel placement: 0.1 mIrys (0.0001 Irys) - Faucet-friendly pricing
  * 
  * Canvas Size: 1024x1024 pixels (fixed)
  * 
