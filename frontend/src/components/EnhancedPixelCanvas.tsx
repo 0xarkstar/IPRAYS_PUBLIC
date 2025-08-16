@@ -37,6 +37,18 @@ interface EnhancedCanvasProps {
   pixelPrice: number;
 }
 
+// Utility function to safely get CSS variables
+const getCSSVariable = (variableName: string, fallback: string): string => {
+  try {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(variableName)
+      .trim();
+    return value || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export const EnhancedPixelCanvas = ({ 
   selectedColor, 
   onPixelPlace, 
@@ -52,6 +64,7 @@ export const EnhancedPixelCanvas = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragDistance, setDragDistance] = useState(0);
   const [hoveredPixel, setHoveredPixel] = useState<{ x: number, y: number } | null>(null);
+  const [lastHoverTime, setLastHoverTime] = useState(0);
   const [showGrid, setShowGrid] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [hasMovedDuringDrag, setHasMovedDuringDrag] = useState(false);
@@ -68,7 +81,19 @@ export const EnhancedPixelCanvas = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Save the initial canvas state
+    ctx.save();
+
+    // Clear canvas completely
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Set default background for empty pixels
+    const canvasBgColor = getCSSVariable('--canvas-bg', '0 0% 99%');
+    ctx.fillStyle = `hsl(${canvasBgColor})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Reset fill style after background
+    ctx.fillStyle = '#000000';
 
     const pixelSize = zoom;
     const startX = Math.max(0, Math.floor(-pan.x / pixelSize));
@@ -76,63 +101,122 @@ export const EnhancedPixelCanvas = ({
     const endX = Math.min(CANVAS_SIZE, Math.ceil((canvas.width - pan.x) / pixelSize));
     const endY = Math.min(CANVAS_SIZE, Math.ceil((canvas.height - pan.y) / pixelSize));
 
-    // Draw grid only if enabled and not in preview mode
-    if (showGrid && !isPreviewMode) {
-      ctx.strokeStyle = 'hsl(var(--canvas-grid))';
-      ctx.lineWidth = 0.5;
-      
-      for (let x = startX; x <= endX; x++) {
-        const xPos = x * pixelSize + pan.x;
-        ctx.beginPath();
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, canvas.height);
-        ctx.stroke();
-      }
-      
-      for (let y = startY; y <= endY; y++) {
-        const yPos = y * pixelSize + pan.y;
-        ctx.beginPath();
-        ctx.moveTo(0, yPos);
-        ctx.lineTo(canvas.width, yPos);
-        ctx.stroke();
-      }
-    }
-
-    // Draw pixels with enhanced styling
+    // Draw pixels first (fully connected)
     pixels.forEach(pixel => {
       const xPos = pixel.x * pixelSize + pan.x;
       const yPos = pixel.y * pixelSize + pan.y;
       
+      // Check if pixel is visible in viewport
       if (xPos >= -pixelSize && xPos <= canvas.width && 
           yPos >= -pixelSize && yPos <= canvas.height) {
         
-        ctx.fillStyle = pixel.color;
-        const padding = isPreviewMode ? 0 : 1;
-        ctx.fillRect(xPos + padding, yPos + padding, pixelSize - padding, pixelSize - padding);
+        // Save context state before drawing this pixel
+        ctx.save();
         
-        // Add subtle glow for Irys-stored pixels
-        if (pixel.irysId && !isPreviewMode) {
-          ctx.shadowColor = 'hsl(var(--primary))';
-          ctx.shadowBlur = 3;
-          ctx.fillRect(xPos + padding, yPos + padding, pixelSize - padding, pixelSize - padding);
-          ctx.shadowBlur = 0;
+        // Draw main pixel (completely fills grid cell)
+        ctx.fillStyle = pixel.color;
+        ctx.fillRect(xPos, yPos, pixelSize, pixelSize);
+        
+        // Add subtle border for Irys-stored pixels (only in high zoom)
+        if (pixel.irysId && !isPreviewMode && zoom >= 8) {
+          const primaryColor = getCSSVariable('--primary', '166 89% 75%');
+          ctx.strokeStyle = `hsl(${primaryColor})`;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(xPos + 0.5, yPos + 0.5, pixelSize - 1, pixelSize - 1);
         }
+        
+        // Restore context state after drawing this pixel
+        ctx.restore();
       }
     });
 
-    // Draw hover effect
-    if (hoveredPixel && zoom >= 4 && !isPreviewMode) {
+    // Draw grid on top of pixels (only at high zoom levels)
+    if (showGrid && !isPreviewMode && zoom >= 6) {
+      ctx.save();
+      
+      const gridColor = getCSSVariable('--canvas-grid', '180 6% 90%');
+      ctx.strokeStyle = `hsl(${gridColor})`;
+      ctx.lineWidth = zoom >= 12 ? 0.8 : 0.4;
+      ctx.globalAlpha = zoom >= 12 ? 0.3 : 0.2;
+      
+      // Draw vertical grid lines
+      for (let x = startX; x <= endX; x++) {
+        const xPos = x * pixelSize + pan.x;
+        if (xPos >= 0 && xPos <= canvas.width) {
+          ctx.beginPath();
+          ctx.moveTo(xPos, Math.max(0, startY * pixelSize + pan.y));
+          ctx.lineTo(xPos, Math.min(canvas.height, endY * pixelSize + pan.y));
+          ctx.stroke();
+        }
+      }
+      
+      // Draw horizontal grid lines
+      for (let y = startY; y <= endY; y++) {
+        const yPos = y * pixelSize + pan.y;
+        if (yPos >= 0 && yPos <= canvas.height) {
+          ctx.beginPath();
+          ctx.moveTo(Math.max(0, startX * pixelSize + pan.x), yPos);
+          ctx.lineTo(Math.min(canvas.width, endX * pixelSize + pan.x), yPos);
+          ctx.stroke();
+        }
+      }
+      
+      ctx.restore(); // Restore grid context state
+    }
+
+    // Draw hover effect (improved accuracy and visibility)
+    if (hoveredPixel && zoom >= 4 && !isPreviewMode && !isDragging) {
       const xPos = hoveredPixel.x * pixelSize + pan.x;
       const yPos = hoveredPixel.y * pixelSize + pan.y;
       
-      ctx.strokeStyle = 'hsl(var(--pixel-hover))';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(xPos, yPos, pixelSize, pixelSize);
-      
-      ctx.fillStyle = selectedColor + '80';
-      ctx.fillRect(xPos + 1, yPos + 1, pixelSize - 1, pixelSize - 1);
+      // Only show if the hovered pixel is within visible area
+      if (xPos >= -pixelSize && xPos <= canvas.width && 
+          yPos >= -pixelSize && yPos <= canvas.height) {
+        
+        // Save current state
+        ctx.save();
+        
+        // Preview the selected color with proper transparency
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = selectedColor;
+        ctx.fillRect(xPos, yPos, pixelSize, pixelSize);
+        
+        // Reset alpha for border
+        ctx.globalAlpha = 1.0;
+        
+        // Draw animated hover border
+        const borderWidth = Math.max(1, Math.min(3, pixelSize / 6));
+        const primaryColor = getCSSVariable('--primary', '166 89% 75%');
+        ctx.strokeStyle = `hsl(${primaryColor})`;
+        ctx.lineWidth = borderWidth;
+        ctx.strokeRect(
+          xPos + borderWidth/2, 
+          yPos + borderWidth/2, 
+          pixelSize - borderWidth, 
+          pixelSize - borderWidth
+        );
+        
+        // Add inner highlight for high zoom levels
+        if (zoom >= 8) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1;
+          const innerOffset = borderWidth + 1;
+          ctx.strokeRect(
+            xPos + innerOffset, 
+            yPos + innerOffset, 
+            pixelSize - 2 * innerOffset, 
+            pixelSize - 2 * innerOffset
+          );
+        }
+        
+        // Restore state
+        ctx.restore();
+      }
     }
-  }, [zoom, pan, pixels, hoveredPixel, selectedColor, showGrid, isPreviewMode]);
+    
+    // Restore the initial canvas state
+    ctx.restore();
+  }, [zoom, pan, pixels, hoveredPixel, selectedColor, showGrid, isPreviewMode, isDragging]);
 
   const getPixelCoords = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -142,12 +226,15 @@ export const EnhancedPixelCanvas = ({
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    // Get canvas coordinates
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
     
-    const pixelX = Math.floor((x - pan.x) / zoom);
-    const pixelY = Math.floor((y - pan.y) / zoom);
+    // Convert to pixel grid coordinates
+    const pixelX = Math.floor((canvasX - pan.x) / zoom);
+    const pixelY = Math.floor((canvasY - pan.y) / zoom);
     
+    // Ensure coordinates are within canvas bounds
     if (pixelX >= 0 && pixelX < CANVAS_SIZE && pixelY >= 0 && pixelY < CANVAS_SIZE) {
       return { x: pixelX, y: pixelY };
     }
@@ -183,14 +270,12 @@ export const EnhancedPixelCanvas = ({
     }
   };
 
-  // Unified pointer handling (mouse/touch)
-  const handlePointerMove = (e: React.PointerEvent | React.MouseEvent) => {
-    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
-    
-    if (isDragging && clientX && clientY) {
-      const deltaX = clientX - dragStart.x;
-      const deltaY = clientY - dragStart.y;
+  // Mouse move for hover effects (separate from drag)
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      // Handle dragging
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
       
       // Calculate total drag distance and mark as moved if distance > 1
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -212,10 +297,45 @@ export const EnhancedPixelCanvas = ({
           y: Math.max(minPanY, Math.min(maxPanY, prev.y + deltaY))
         };
       });
-      setDragStart({ x: clientX, y: clientY });
-    } else if (!isPreviewMode && clientX && clientY) {
-      const coords = getPixelCoords(clientX, clientY);
-      setHoveredPixel(coords);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    } else if (!isPreviewMode) {
+      // Handle hover effects when not dragging
+      const coords = getPixelCoords(e.clientX, e.clientY);
+      // Only update if coordinates actually changed (performance optimization)
+      if (!hoveredPixel || !coords || 
+          hoveredPixel.x !== coords.x || hoveredPixel.y !== coords.y) {
+        setHoveredPixel(coords);
+        setLastHoverTime(Date.now());
+      }
+    }
+  };
+
+  // Touch move for mobile dragging
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isDragging) {
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragStart.x;
+      const deltaY = touch.clientY - dragStart.y;
+      
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      setDragDistance(distance);
+      
+      if (distance > 1) {
+        setHasMovedDuringDrag(true);
+      }
+      
+      setPan(prev => {
+        const maxPanX = 0;
+        const maxPanY = 0;
+        const minPanX = -(CANVAS_SIZE * zoom - (canvasRef.current?.width || 0));
+        const minPanY = -(CANVAS_SIZE * zoom - (canvasRef.current?.height || 0));
+        
+        return {
+          x: Math.max(minPanX, Math.min(maxPanX, prev.x + deltaX)),
+          y: Math.max(minPanY, Math.min(maxPanY, prev.y + deltaY))
+        };
+      });
+      setDragStart({ x: touch.clientX, y: touch.clientY });
     }
   };
 
@@ -224,7 +344,11 @@ export const EnhancedPixelCanvas = ({
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       setIsDragging(true);
+      setHasMovedDuringDrag(false);
       setDragStart({ x: touch.clientX, y: touch.clientY });
+      setDragDistance(0);
+      // Clear hover on touch start
+      setHoveredPixel(null);
     }
   };
 
@@ -232,6 +356,8 @@ export const EnhancedPixelCanvas = ({
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (e.touches.length === 0) {
       setIsDragging(false);
+      // Reset the move flag after a delay to allow click handler to read it
+      setTimeout(() => setHasMovedDuringDrag(false), 100);
     }
   };
 
@@ -240,7 +366,7 @@ export const EnhancedPixelCanvas = ({
       setIsDragging(true);
       setHasMovedDuringDrag(false);
       setDragStart({ x: e.clientX, y: e.clientY });
-      setDragDistance(0); // Reset drag distance
+      setDragDistance(0);
     }
   };
 
@@ -248,6 +374,19 @@ export const EnhancedPixelCanvas = ({
     setIsDragging(false);
     // Reset the move flag after a delay to allow click handler to read it
     setTimeout(() => setHasMovedDuringDrag(false), 100);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredPixel(null);
+    setIsDragging(false);
+    setHasMovedDuringDrag(false);
+  };
+
+  const handleMouseEnter = () => {
+    // Reset states when mouse enters canvas
+    if (!isDragging) {
+      setHasMovedDuringDrag(false);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -363,18 +502,7 @@ export const EnhancedPixelCanvas = ({
     drawCanvas();
   }, [drawCanvas]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const handleMouseLeave = () => {
-      setHoveredPixel(null);
-      setIsDragging(false);
-    };
-
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-    return () => canvas.removeEventListener('mouseleave', handleMouseLeave);
-  }, []);
+  // Event handlers are now handled directly on the canvas element
 
   return (
     <div className="w-full">
@@ -412,12 +540,13 @@ export const EnhancedPixelCanvas = ({
           
           {/* View Controls */}
           <Button
-            variant="outline"
+            variant={showGrid ? "default" : "outline"}
             size="sm"
             onClick={() => setShowGrid(!showGrid)}
             className="p-1 h-8 w-8"
+            title={showGrid ? "Hide grid" : "Show grid"}
           >
-            <Grid className="h-3 w-3" />
+            <Grid className={`h-3 w-3 ${showGrid ? 'text-primary-foreground' : ''}`} />
           </Button>
           
           <Button
@@ -466,22 +595,31 @@ export const EnhancedPixelCanvas = ({
           ref={canvasRef}
           className={`block w-full h-full bg-canvas-bg ${isPreviewMode ? 'cursor-grab' : 'cursor-crosshair'} touch-none`}
           onClick={handleCanvasClick}
-          onPointerMove={handlePointerMove}
+          onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onMouseEnter={handleMouseEnter}
           onTouchStart={handleTouchStart}
-          onTouchMove={(e) => handlePointerMove(e as any)}
+          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         />
         
         {/* Status Overlays */}
         {hoveredPixel && !isPreviewMode && (
-          <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-border">
-            <div className="text-sm text-foreground">
+          <div className="absolute top-2 right-2 bg-card/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-border shadow-lg">
+            <div className="text-sm text-foreground font-medium">
               Position: ({hoveredPixel.x}, {hoveredPixel.y})
             </div>
-              <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               Cost: {pixelPrice.toFixed(3)} IRYS
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+              <div 
+                className="w-4 h-4 rounded border border-border" 
+                style={{ backgroundColor: selectedColor }}
+              ></div>
+              <span className="font-mono">{selectedColor.toUpperCase()}</span>
             </div>
           </div>
         )}
@@ -516,11 +654,18 @@ export const EnhancedPixelCanvas = ({
         )}
       </div>
       
-      <div className="mt-3 text-center text-xs text-muted-foreground">
-        {isPreviewMode 
-          ? "Preview mode • Drag to pan • Scroll to zoom" 
-          : "Click to place pixels • Drag to pan • Scroll to zoom"
-        }
+      <div className="mt-3 text-center text-xs text-muted-foreground space-y-1">
+        <div>
+          {isPreviewMode 
+            ? "Preview mode • Drag to pan • Scroll to zoom" 
+            : "Click to place pixels • Drag to pan • Scroll to zoom"
+          }
+        </div>
+        {showGrid && zoom < 6 && (
+          <div className="text-xs text-muted-foreground/60">
+            Grid hidden at low zoom levels • Zoom in to see grid
+          </div>
+        )}
       </div>
     </div>
   );
