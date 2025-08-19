@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Timer, Zap, Percent } from 'lucide-react';
+import { useRateLimitInfo } from '@/hooks/useRateLimitInfo';
 
 interface SpecialSaleInfo {
   active: boolean;
@@ -13,12 +14,19 @@ interface SpecialSaleInfo {
 }
 
 export const SpecialSaleBanner: React.FC = () => {
+  const { rateLimitInfo, isLoading } = useRateLimitInfo();
+  
+  // Calculate dynamic sale info based on actual contract values
+  const cooldownSeconds = isLoading ? 3 : (rateLimitInfo.minPlacementInterval || 3);
+  const pixelsPerMinute = Math.floor(60 / cooldownSeconds);
+  const dailyPixelLimit = Math.floor(0.5 / 0.00001); // 0.5 IRYS faucet / 0.00001 IRYS per pixel
+  
   const [saleInfo, setSaleInfo] = useState<SpecialSaleInfo>({
     active: true,
     priceDiscount: "90%",
     cooldownReduction: "95%",
-    pixelsPerMinute: 20,
-    dailyPixelLimit: 50000,
+    pixelsPerMinute,
+    dailyPixelLimit,
     currentPrice: "0.00001"
   });
 
@@ -28,6 +36,15 @@ export const SpecialSaleBanner: React.FC = () => {
     minutes: 0,
     seconds: 0
   });
+
+  // Update sale info when rate limit info changes
+  useEffect(() => {
+    setSaleInfo(prev => ({
+      ...prev,
+      pixelsPerMinute,
+      dailyPixelLimit
+    }));
+  }, [pixelsPerMinute, dailyPixelLimit]);
 
   useEffect(() => {
     // 특가 세일 종료 시간 설정 (UTC 8월 25일 00:00:00)
@@ -93,7 +110,7 @@ export const SpecialSaleBanner: React.FC = () => {
               <div className="text-center">
                 <div className="flex items-center gap-1 text-sm">
                   <Zap className="w-4 h-4" />
-                  <span className="font-semibold">3s cooldown</span>
+                  <span className="font-semibold">{cooldownSeconds}s cooldown</span>
                 </div>
                 <div className="text-xs opacity-75">{saleInfo.pixelsPerMinute}/min</div>
               </div>

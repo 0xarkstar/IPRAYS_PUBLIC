@@ -2,8 +2,15 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { useRateLimitInfo } from '@/hooks/useRateLimitInfo';
 
 export const SaleEndedBanner: React.FC = () => {
+  const { rateLimitInfo, isLoading } = useRateLimitInfo();
+  
+  // Get actual cooldown from contract or fallback to current contract value (should be 3s during sale, then restored to normal)
+  const cooldownSeconds = isLoading ? 3 : (rateLimitInfo.minPlacementInterval || 3);
+  const pixelsPerMinute = Math.floor(60 / cooldownSeconds);
+  
   return (
     <Card className="bg-gradient-to-r from-green-500 to-blue-600 text-white shadow-lg border-0 mb-4">
       <CardContent className="p-4">
@@ -38,9 +45,9 @@ export const SaleEndedBanner: React.FC = () => {
               <div className="text-center">
                 <div className="flex items-center gap-1 text-sm">
                   <Clock className="w-4 h-4" />
-                  <span className="font-semibold">60s cooldown</span>
+                  <span className="font-semibold">{cooldownSeconds}s cooldown</span>
                 </div>
-                <div className="text-xs opacity-75">1 pixel/min</div>
+                <div className="text-xs opacity-75">{pixelsPerMinute} pixels/min</div>
               </div>
             </div>
           </div>

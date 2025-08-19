@@ -7,6 +7,10 @@ export const IRYS_CONFIG = {
   rpcUrl: import.meta.env.VITE_IRYS_RPC || 'https://testnet-rpc.irys.xyz/v1/execution-rpc',
   wsUrl: import.meta.env.VITE_IRYS_WS || null,
   
+  // Best practice URL patterns
+  uploaderUrl: import.meta.env.VITE_IRYS_UPLOADER_URL || 'http://uploader.irys.xyz',
+  gatewayUrl: import.meta.env.VITE_IRYS_GATEWAY_URL || 'https://gateway.irys.xyz',
+  
   // Contract settings - Updated with latest deployment
   contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS || '0x9A854fA655994069500523f57101Ee80b753ea13',
   implementationAddress: import.meta.env.VITE_IMPLEMENTATION_ADDRESS || '0xD83cE894A6D4c8d6aC378887110ccf2e883d540F',
@@ -120,4 +124,18 @@ export const checkAndSwitchNetwork = async () => {
     console.error('Failed to check network:', error);
     return false;
   }
+};
+
+// Helper functions for URL generation (Best Practice)
+export const getIrysUrls = (txId: string) => ({
+  uploader: `${IRYS_CONFIG.uploaderUrl}/tx/${txId}`,
+  gateway: `${IRYS_CONFIG.gatewayUrl}/${txId}`,
+  // Legacy compatibility
+  download: `${IRYS_CONFIG.gatewayUrl}/${txId}`
+});
+
+export const getTxUrl = (txId: string, preferUploader = true): string => {
+  return preferUploader 
+    ? `${IRYS_CONFIG.uploaderUrl}/tx/${txId}`
+    : `${IRYS_CONFIG.gatewayUrl}/${txId}`;
 };

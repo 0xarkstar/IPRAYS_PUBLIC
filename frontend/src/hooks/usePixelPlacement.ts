@@ -6,6 +6,7 @@ import { getChainIdFromEnv, estimatePixelPlaceFeeEth, checkRateLimitStatus } fro
 import { placePixelWithRecovery } from '@/lib/pixelPlacement';
 import { useIrys } from '@/hooks/useIrys';
 import { useOptimisticCanvas } from '@/hooks/useOptimisticCanvas';
+import { useRateLimitInfo } from '@/hooks/useRateLimitInfo';
 
 interface Pixel {
   x: number;
@@ -37,11 +38,12 @@ export const usePixelPlacement = (
   const expectedChainId = getChainIdFromEnv();
   const { createAccessList, uploadPixelData, isConnected: irysConnected } = useIrys();
   const optimisticCanvas = useOptimisticCanvas();
+  const { rateLimitInfo } = useRateLimitInfo();
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Legacy client-side rate limiting (for UX only) - Updated for special sale
-  const RATE_LIMIT_DURATION = 3 * 1000; // 3 seconds per address - Special Sale
+  // Legacy client-side rate limiting (for UX only) - Use contract's actual cooldown
+  const RATE_LIMIT_DURATION = (rateLimitInfo.minPlacementInterval || 3) * 1000; // Use contract cooldown
   const getStorageKey = (addr?: string | null) => `pixelPlacement_${addr || 'unknown'}`;
   
   const checkClientRateLimit = (addr?: string | null) => {
@@ -187,7 +189,11 @@ export const usePixelPlacement = (
 
       // Update client-side cache for UX (secondary security layer)
       recordClientPlacement(address);
-      toast.success(`Pixel placed successfully! Next placement available in 60s.`);
+      
+      // Show success message with actual contract cooldown
+      const cooldownSec = rateLimitInfo.minPlacementInterval || 3;
+      toast.success(`Pixel placed successfully! Next placement available in ${cooldownSec}s.`);
+      
       onDataRefresh?.();
 
     } catch (error: any) {
