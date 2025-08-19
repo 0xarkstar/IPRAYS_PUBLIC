@@ -3,6 +3,8 @@ import { CompactWalletConnect } from "@/components/CompactWalletConnect";
 import { EnhancedPixelCanvas } from "@/components/EnhancedPixelCanvas";
 import { CanvasBottomBar } from "@/components/CanvasBottomBar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { SpecialSaleBanner } from "@/components/SpecialSaleBanner";
+import { SaleEndedBanner } from "@/components/SaleEndedBanner";
 import { useOptimisticCanvas } from "@/hooks/useOptimisticCanvas";
 import { useCanvasSync } from "@/hooks/useCanvasSync";
 import { usePixelPlacement } from "@/hooks/usePixelPlacement";
@@ -141,6 +143,20 @@ const Index = () => {
           {/* Main Canvas Area */}
           <main className="flex-1 p-4 overflow-hidden">
             <div className="w-full h-full mx-auto px-2">
+              {/* Sale Banner - Dynamic based on current time */}
+              {(() => {
+                const now = new Date();
+                const saleEndTime = new Date('2025-08-25T00:00:00Z');
+                const saleActive = now < saleEndTime;
+                
+                if (saleActive) {
+                  return <SpecialSaleBanner />;
+                } else {
+                  // Show ended banner for 7 days after sale ends, then hide
+                  const bannerEndTime = new Date(saleEndTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+                  return now < bannerEndTime ? <SaleEndedBanner /> : null;
+                }
+              })()}
               <EnhancedPixelCanvas 
                 selectedColor={selectedColor} 
                 onPixelPlace={handlePixelPlaceWrapper} 

@@ -40,8 +40,8 @@ export const usePixelPlacement = (
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Legacy client-side rate limiting (for UX only)
-  const RATE_LIMIT_DURATION = 60 * 1000; // 1 minute per address
+  // Legacy client-side rate limiting (for UX only) - Updated for special sale
+  const RATE_LIMIT_DURATION = 3 * 1000; // 3 seconds per address - Special Sale
   const getStorageKey = (addr?: string | null) => `pixelPlacement_${addr || 'unknown'}`;
   
   const checkClientRateLimit = (addr?: string | null) => {

@@ -8,8 +8,8 @@ export const IRYS_CONFIG = {
   wsUrl: import.meta.env.VITE_IRYS_WS || null,
   
   // Contract settings - Updated with latest deployment
-  contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS || '0xE00d7cB8083BE1cf1b4C47A7BA3ab78cAE32fe21',
-  implementationAddress: import.meta.env.VITE_IMPLEMENTATION_ADDRESS || '0x8F2A8bad6CB14231F3676B00E38b1ab04e005859',
+  contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS || '0x9A854fA655994069500523f57101Ee80b753ea13',
+  implementationAddress: import.meta.env.VITE_IMPLEMENTATION_ADDRESS || '0xD83cE894A6D4c8d6aC378887110ccf2e883d540F',
   chainId: Number(import.meta.env.VITE_CHAIN_ID) || 1270,
   
   // Blockchain settings
